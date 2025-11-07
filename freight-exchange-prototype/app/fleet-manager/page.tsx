@@ -320,29 +320,11 @@ function FleetManagerWorkspaceContent() {
                             status: 'active',
                             currentRound: 0,
                           });
-                          try {
-                            await updateLoad(selectedLoad.id, {
-                              status: 'matched',
-                              recommendationId: recommendation.id,
-                              negotiationId: negotiation.id,
-                            });
-                          } catch (updateErr: any) {
-                            if (updateErr?.message?.includes('Load not found')) {
-                              await syncLoads();
-                              const refreshedLoad = useAppStore.getState().loads.find(l => l.id === selectedLoad.id);
-                              if (refreshedLoad) {
-                                await updateLoad(refreshedLoad.id, {
-                                  status: 'matched',
-                                  recommendationId: recommendation.id,
-                                  negotiationId: negotiation.id,
-                                });
-                              } else {
-                                throw new Error('Selected load could not be updated. Please refresh and choose a load again.');
-                              }
-                            } else {
-                              throw updateErr;
-                            }
-                          }
+                          await updateLoad(selectedLoad.id, {
+                            status: 'matched',
+                            recommendationId: recommendation.id,
+                            negotiationId: negotiation.id,
+                          });
                           setSelectedRecommendationId(recommendation.id);
                           handleNextStep();
                         } catch (err: any) {
