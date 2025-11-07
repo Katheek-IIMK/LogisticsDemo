@@ -253,11 +253,41 @@ export class TripService {
   async createTrip(
     loadId: string,
     recommendationId: string,
-    tripData: Omit<Trip, 'id' | 'loadId' | 'recommendationId' | 'status'>
+    tripData: Omit<Trip, 'id' | 'loadId' | 'recommendationId'>,
+    options: { loadSnapshot?: Load; recommendationSnapshot?: Recommendation } = {}
   ): Promise<Trip> {
-    const load = await dataStore.getLoad(loadId);
+    const { loadSnapshot, recommendationSnapshot } = options;
+
+    let load = await dataStore.getLoad(loadId);
+    if (!load && loadSnapshot && loadSnapshot.id === loadId) {
+      await dataStore.createLoad(loadSnapshot);
+      load = await dataStore.getLoad(loadId);
+    }
+
     if (!load) {
       throw new Error('Load not found');
+    }
+
+    let recommendation = recommendationId
+      ? await dataStore.getRecommendation(recommendationId)
+      : null;
+
+    if (!recommendation && recommendationSnapshot && recommendationSnapshot.id === recommendationId) {
+      const snapshotLoadId = recommendationSnapshot.loadId || loadId;
+      let associatedLoad = await dataStore.getLoad(snapshotLoadId);
+      if (!associatedLoad && loadSnapshot && loadSnapshot.id === snapshotLoadId) {
+        await dataStore.createLoad(loadSnapshot);
+        associatedLoad = await dataStore.getLoad(snapshotLoadId);
+      }
+      if (!associatedLoad) {
+        associatedLoad = load;
+      }
+
+      await dataStore.createRecommendation({
+        ...recommendationSnapshot,
+        loadId: associatedLoad.id,
+      } as Recommendation);
+      recommendation = await dataStore.getRecommendation(recommendationId);
     }
 
     const trip: Trip = {
@@ -265,15 +295,21 @@ export class TripService {
       id: `trip_${Date.now()}`,
       loadId,
       recommendationId,
-      origin: load.origin,
-      destination: load.destination,
-      status: 'assigned',
-      payout: load.finalizedPrice || load.pricePredicted || 45000,
+      origin: tripData.origin || recommendation?.origin || load.origin,
+      destination: tripData.destination || recommendation?.destination || load.destination,
+      status: tripData.status || 'assigned',
+      payout:
+        tripData.payout ??
+        load.finalizedPrice ??
+        recommendation?.priceSuggested ??
+        load.pricePredicted ??
+        45000,
     };
 
     await dataStore.createTrip(trip);
     await dataStore.updateLoad(loadId, {
       status: 'dispatched',
+      finalizedPrice: load.finalizedPrice ?? trip.payout,
     });
 
     return trip;

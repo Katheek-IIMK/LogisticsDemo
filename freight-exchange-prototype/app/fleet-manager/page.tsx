@@ -613,9 +613,18 @@ function FleetManagerWorkspaceContent() {
                     setError(null);
                     try {
                       const { addTrip } = useAppStore.getState();
+                      const recommendationId = selectedLoad.recommendationId || activeRecommendation?.id;
+                      if (!recommendationId) {
+                        throw new Error('No recommendation associated with this load. Please complete negotiation before dispatching.');
+                      }
+                      const recommendationSnapshot =
+                        activeRecommendation && activeRecommendation.id === recommendationId
+                          ? activeRecommendation
+                          : undefined;
+
                       await addTrip({
                         loadId: selectedLoad.id,
-                        recommendationId: selectedLoad.recommendationId || 'demo_rec_001',
+                        recommendationId,
                         driverId: selectedDriver.id,
                         driverName: selectedDriver.name,
                         origin: selectedLoad.origin,
@@ -633,6 +642,8 @@ function FleetManagerWorkspaceContent() {
                         ],
                         startTime: null,
                         endTime: null,
+                        loadSnapshot: selectedLoad,
+                        recommendationSnapshot,
                       });
                       // Load status is updated automatically by TripService
                       handleNextStep();

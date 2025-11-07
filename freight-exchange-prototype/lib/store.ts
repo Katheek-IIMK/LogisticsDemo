@@ -24,7 +24,9 @@ interface AppState {
     }
   ) => Promise<Negotiation>;
   updateNegotiation: (id: string, updates: Partial<Negotiation>) => Promise<Negotiation>;
-  addTrip: (trip: Omit<Trip, 'id'>) => Promise<Trip>;
+  addTrip: (
+    trip: Omit<Trip, 'id'> & { loadSnapshot?: Load; recommendationSnapshot?: Recommendation }
+  ) => Promise<Trip>;
   updateTrip: (id: string, updates: Partial<Trip>) => Promise<Trip>;
   syncLoads: () => Promise<void>;
   syncRecommendations: () => Promise<void>;
@@ -175,11 +177,24 @@ export const useAppStore = create<AppState>()(
           throw error;
         }
       },
-      addTrip: async (trip) => {
+      addTrip: async ({ loadSnapshot, recommendationSnapshot, ...trip }) => {
         try {
-          const created = await apiClient.createTrip(trip);
+          const created = await apiClient.createTrip({
+            ...trip,
+            loadSnapshot,
+            recommendationSnapshot,
+          });
           set((state) => ({
             trips: [...state.trips, created],
+            loads: state.loads.map((l) =>
+              l.id === created.loadId
+                ? {
+                    ...l,
+                    status: 'dispatched',
+                    finalizedPrice: l.finalizedPrice || trip.payout || l.finalizedPrice || 0,
+                  }
+                : l
+            ),
           }));
           return created;
         } catch (error) {

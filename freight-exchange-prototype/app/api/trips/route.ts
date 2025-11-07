@@ -26,8 +26,16 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { loadId, recommendationId, ...tripData } = body;
-    const trip = await tripService.createTrip(loadId, recommendationId, tripData);
+    const { loadId, recommendationId, loadSnapshot, recommendationSnapshot, ...tripData } = body;
+    const trip = await tripService.createTrip(
+      loadId,
+      recommendationId,
+      tripData,
+      {
+        loadSnapshot,
+        recommendationSnapshot,
+      }
+    );
     return NextResponse.json(trip, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(

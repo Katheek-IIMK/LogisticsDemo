@@ -111,7 +111,9 @@ class ApiClient {
   }
 
   // Trips API
-  async createTrip(trip: Omit<Trip, 'id'>): Promise<Trip> {
+  async createTrip(
+    trip: Omit<Trip, 'id'> & { loadSnapshot?: Load; recommendationSnapshot?: Recommendation }
+  ): Promise<Trip> {
     return this.request<Trip>('/trips', {
       method: 'POST',
       body: JSON.stringify(trip),
