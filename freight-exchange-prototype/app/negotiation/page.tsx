@@ -34,6 +34,11 @@ function NegotiationContent() {
   
   const rehydrateAttemptedRef = useRef(false);
   const startRetryRef = useRef(false);
+  const negotiationRef = useRef<Negotiation | null>(null);
+
+  useEffect(() => {
+    negotiationRef.current = negotiation;
+  }, [negotiation]);
 
   const attemptNegotiationRehydrate = useCallback(async () => {
     if (rehydrateAttemptedRef.current) {
@@ -46,18 +51,26 @@ function NegotiationContent() {
         return null;
       }
 
-      const baseNegotiation = negotiation || null;
+      const state = useAppStore.getState();
+      const storeLoads = state.loads;
+      const storeRecommendations = state.recommendations;
+      const storeNegotiations = state.negotiations;
+      const currentNegotiation = negotiationRef.current;
+
+      const baseNegotiation =
+        currentNegotiation || storeNegotiations.find((n) => n.id === negotiationId) || null;
+
       const baseLoad =
-        loads.find((l) => l.negotiationId === negotiationId) ||
+        storeLoads.find((l) => l.negotiationId === negotiationId) ||
         (baseNegotiation?.recommendationId
-          ? loads.find((l) => l.recommendationId === baseNegotiation.recommendationId)
+          ? storeLoads.find((l) => l.recommendationId === baseNegotiation.recommendationId)
           : null);
 
       const baseRecommendation =
         baseNegotiation?.recommendationId
-          ? recommendations.find((r) => r.id === baseNegotiation.recommendationId)
+          ? storeRecommendations.find((r) => r.id === baseNegotiation.recommendationId)
           : baseLoad?.recommendationId
-          ? recommendations.find((r) => r.id === baseLoad.recommendationId)
+          ? storeRecommendations.find((r) => r.id === baseLoad.recommendationId)
           : null;
 
       if (!baseRecommendation || !baseLoad) {
@@ -118,10 +131,10 @@ function NegotiationContent() {
         status: 'negotiating',
       });
 
-      useAppStore.setState((state) => ({
-        negotiations: state.negotiations.some((n) => n.id === recreated.id)
-          ? state.negotiations.map((n) => (n.id === recreated.id ? recreated : n))
-          : [...state.negotiations, recreated],
+      useAppStore.setState((storeState) => ({
+        negotiations: storeState.negotiations.some((n) => n.id === recreated.id)
+          ? storeState.negotiations.map((n) => (n.id === recreated.id ? recreated : n))
+          : [...storeState.negotiations, recreated],
       }));
 
       if (recreated.id !== negotiationId) {
@@ -134,6 +147,7 @@ function NegotiationContent() {
       };
 
       setNegotiation(normalized);
+      negotiationRef.current = normalized;
       if (normalized.finalizedPrice) {
         setFinalizedPrice(normalized.finalizedPrice);
       }
@@ -144,15 +158,7 @@ function NegotiationContent() {
       rehydrateAttemptedRef.current = false;
       return null;
     }
-  }, [
-    negotiationId,
-    negotiation,
-    loads,
-    recommendations,
-    addNegotiation,
-    updateLoad,
-    router,
-  ]);
+  }, [negotiationId, addNegotiation, updateLoad, router]);
 
   useEffect(() => {
     rehydrateAttemptedRef.current = false;
