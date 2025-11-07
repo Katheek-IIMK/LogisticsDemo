@@ -11,6 +11,15 @@ import Link from 'next/link';
 const FLEET_MANAGER_STEPS = ['post', 'matching', 'compliance', 'feasibility', 'negotiation', 'review', 'driver', 'dispatch', 'monitoring', 'kpis'] as const;
 type FleetManagerStep = typeof FLEET_MANAGER_STEPS[number];
 
+type DriverOption = {
+  id: string;
+  name: string;
+  experience: number;
+  routeMatch: number;
+  availability: string;
+  preferredRoute?: string;
+};
+
 export default function FleetManagerWorkspace() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,7 +69,7 @@ export default function FleetManagerWorkspace() {
 
   const driverOptions = useMemo(() => {
     const route = loads.find((l) => l.id === selectedLoadId) || null;
-    const baseDrivers = [
+    const baseDrivers: DriverOption[] = [
       { id: 'driver_001', name: 'John Doe', experience: 6, routeMatch: 0.95, availability: 'Immediate' },
       { id: 'driver_002', name: 'Anita Sharma', experience: 8, routeMatch: 0.9, availability: '2 hrs' },
       { id: 'driver_003', name: 'Rahul Verma', experience: 4, routeMatch: 0.88, availability: '4 hrs' },
