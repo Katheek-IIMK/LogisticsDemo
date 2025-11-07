@@ -233,6 +233,16 @@ export const useAppStore = create<AppState>()(
       syncNegotiations: async () => {
         try {
           const negotiations = await apiClient.getNegotiations();
+          if (negotiations.length === 0) {
+            set((state) => {
+              if (state.negotiations.length > 0) {
+                console.warn('Backend returned no negotiations; keeping existing local negotiations.');
+                return state;
+              }
+              return { negotiations: [] };
+            });
+            return;
+          }
           set({ negotiations });
         } catch (error) {
           console.error('Failed to sync negotiations:', error);
