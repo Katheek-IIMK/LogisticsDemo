@@ -9,6 +9,7 @@ import { Handshake, MapPin, Package, TrendingUp, Clock } from 'lucide-react';
 import Link from 'next/link';
 import recommendationsData from '@/mockData/recommendations.json';
 import { MapSnapshot } from '@/components/MapSnapshot';
+import type { Recommendation } from '@/types';
 
 export default function MatchmakingPage() {
   const router = useRouter();
@@ -81,9 +82,54 @@ export default function MatchmakingPage() {
     }
   };
 
-  const handleAssign = (rec: typeof recommendations[0]) => {
-    addRecommendation(rec);
-    alert('Recommendation assigned successfully!');
+  const handleAssign = async (rec: typeof recommendations[0]) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const associatedLoad =
+        'loadId' in rec && rec.loadId
+          ? loads.find((load) => load.id === rec.loadId) || null
+          : loads.find((load) =>
+              load.origin === rec.origin && load.destination === rec.destination
+            ) || (loads.length > 0 ? loads[0] : null);
+
+      if (!associatedLoad) {
+        throw new Error('No available load to attach this recommendation to. Create a load first.');
+      }
+
+      const status: Recommendation['status'] =
+        'status' in rec ? (rec.status as Recommendation['status']) : 'pending';
+
+      const payload: Omit<Recommendation, 'id'> = {
+        loadId: 'loadId' in rec && rec.loadId ? rec.loadId : associatedLoad.id,
+        origin: rec.origin,
+        destination: rec.destination,
+        loadType: rec.loadType,
+        distanceKm: rec.distanceKm,
+        detourKm: rec.detourKm,
+        feasibility: rec.feasibility,
+        priceSuggested: rec.priceSuggested,
+        complianceFlags: rec.complianceFlags,
+        etaHours: rec.etaHours,
+        status,
+        routeSummary: 'routeSummary' in rec ? rec.routeSummary : undefined,
+        truckId: 'truckId' in rec ? rec.truckId : undefined,
+      };
+
+      const created = await addRecommendation(payload);
+
+      await updateLoad(payload.loadId, {
+        status: 'matched',
+        recommendationId: created.id,
+      });
+
+      alert('Recommendation assigned successfully!');
+    } catch (err: any) {
+      setError(err.message || 'Failed to assign recommendation');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
