@@ -46,12 +46,30 @@ const getInitialRole = (): Role | null => {
   return null;
 };
 
+const getPersistedLoads = (): Load[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const raw = localStorage.getItem('freight-exchange-storage');
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    const loads = parsed?.state?.loads;
+    return Array.isArray(loads) ? (loads as Load[]) : [];
+  } catch (error) {
+    console.warn('Failed to read persisted loads from storage:', error);
+    return [];
+  }
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       selectedRole: getInitialRole(),
       kpis: initialKPIs,
-      loads: [],
+      loads: getPersistedLoads(),
       recommendations: [],
       negotiations: [],
       trips: [],
@@ -181,9 +199,21 @@ export const useAppStore = create<AppState>()(
       syncLoads: async () => {
         try {
           const loads = await apiClient.getLoads();
+          if (loads.length === 0) {
+            const fallbackLoads = getPersistedLoads();
+            if (fallbackLoads.length > 0) {
+              console.warn('Backend returned no loads; using locally persisted loads.');
+              set({ loads: fallbackLoads });
+              return;
+            }
+          }
           set({ loads });
         } catch (error) {
           console.error('Failed to sync loads:', error);
+          const fallbackLoads = getPersistedLoads();
+          if (fallbackLoads.length > 0) {
+            set({ loads: fallbackLoads });
+          }
         }
       },
       syncRecommendations: async () => {
