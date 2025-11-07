@@ -615,6 +615,14 @@ export default function FleetManagerWorkspace() {
                         recommendationId: selectedLoad.recommendationId || 'demo_rec_001',
                         driverId: selectedDriver.id,
                         driverName: selectedDriver.name,
+                        origin: selectedLoad.origin,
+                        destination: selectedLoad.destination,
+                        status: 'assigned',
+                        payout:
+                          selectedLoad.finalizedPrice ||
+                          activeNegotiation?.finalizedPrice ||
+                          activeRecommendation?.priceSuggested ||
+                          0,
                         checkpoints: [
                           { id: 'cp1', location: selectedLoad.origin, status: 'pending', eta: new Date(Date.now() + 3600000).toISOString() },
                           { id: 'cp2', location: 'Midpoint', status: 'pending', eta: new Date(Date.now() + 7200000).toISOString() },
