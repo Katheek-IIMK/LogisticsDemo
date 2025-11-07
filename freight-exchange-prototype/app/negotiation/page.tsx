@@ -10,6 +10,7 @@ import { Bot, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { AgentReasonCard } from '@/components/AgentReasonCard';
+import type { Negotiation } from '@/types';
 
 function NegotiationContent() {
   const router = useRouter();
@@ -25,7 +26,7 @@ function NegotiationContent() {
   const syncLoads = useAppStore((state) => state.syncLoads);
   const selectedRole = useAppStore((state) => state.selectedRole);
   const syncRecommendations = useAppStore((state) => state.syncRecommendations);
-  const [negotiation, setNegotiation] = useState<any>(null);
+  const [negotiation, setNegotiation] = useState<Negotiation | null>(null);
   const [isNegotiating, setIsNegotiating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [finalizedPrice, setFinalizedPrice] = useState<number | null>(null);
@@ -81,13 +82,13 @@ function NegotiationContent() {
         }
         
         if (found) {
-          // Ensure offers array exists
-          if (!found.offers) {
-            found.offers = [];
-          }
-          setNegotiation(found);
-          if (found.finalizedPrice) {
-            setFinalizedPrice(found.finalizedPrice);
+          const normalizedFound: Negotiation = {
+            ...found,
+            offers: found.offers ?? [],
+          };
+          setNegotiation(normalizedFound);
+          if (normalizedFound.finalizedPrice) {
+            setFinalizedPrice(normalizedFound.finalizedPrice);
           }
         } else {
           setError(`Negotiation with ID "${negotiationId}" not found. Please check the ID and try again.`);
@@ -107,13 +108,13 @@ function NegotiationContent() {
     if (negotiationId && negotiations.length > 0) {
       const found = negotiations.find((n) => n.id === negotiationId);
       if (found) {
-        // Ensure offers array exists
-        if (!found.offers) {
-          found.offers = [];
-        }
-        setNegotiation(found);
-        if (found.finalizedPrice) {
-          setFinalizedPrice(found.finalizedPrice);
+        const normalizedFound: Negotiation = {
+          ...found,
+          offers: found.offers ?? [],
+        };
+        setNegotiation(normalizedFound);
+        if (normalizedFound.finalizedPrice) {
+          setFinalizedPrice(normalizedFound.finalizedPrice);
         }
       }
     }
@@ -134,9 +135,12 @@ function NegotiationContent() {
         throw new Error('Failed to start negotiation');
       }
       
-      const updatedNegotiation = await response.json();
+      const updatedNegotiation = (await response.json()) as Negotiation;
       await updateNegotiation(negotiation.id, updatedNegotiation);
-      setNegotiation(updatedNegotiation);
+      setNegotiation({
+        ...updatedNegotiation,
+        offers: updatedNegotiation.offers ?? [],
+      });
       
       if (updatedNegotiation.finalizedPrice) {
         setFinalizedPrice(updatedNegotiation.finalizedPrice);

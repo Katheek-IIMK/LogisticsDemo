@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ type DriverOption = {
   preferredRoute?: string;
 };
 
-export default function FleetManagerWorkspace() {
+function FleetManagerWorkspaceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setRole = useAppStore((state) => state.setRole);
@@ -837,6 +837,14 @@ export default function FleetManagerWorkspace() {
       {/* Current Step Content */}
       {renderStepContent()}
     </div>
+  );
+}
+
+export default function FleetManagerWorkspace() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <FleetManagerWorkspaceContent />
+    </Suspense>
   );
 }
 

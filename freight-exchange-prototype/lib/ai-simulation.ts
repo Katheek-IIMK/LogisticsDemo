@@ -80,6 +80,7 @@ export function synthesizeRoutes(
 
     candidates.push({
       id: `rec_${Date.now()}_${truck.id}`,
+      loadId: load.id,
       origin: load.origin,
       destination: load.destination,
       loadType: load.loadType,
@@ -91,6 +92,7 @@ export function synthesizeRoutes(
       etaHours: Math.ceil(totalDistance / 60), // Assuming 60 km/h average
       routeSummary,
       truckId: truck.id,
+      status: 'pending',
     });
   }
 

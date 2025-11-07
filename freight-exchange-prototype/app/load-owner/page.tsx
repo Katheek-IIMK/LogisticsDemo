@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { apiClient } from '@/lib/api-client';
 import { Package, DollarSign, Search, CheckCircle, TrendingUp, Handshake, Eye, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function LoadOwnerWorkspace() {
+function LoadOwnerWorkspaceContent() {
   const router = useSearchParams();
   const setRole = useAppStore((state) => state.setRole);
   const addLoad = useAppStore((state) => state.addLoad);
@@ -862,6 +862,14 @@ export default function LoadOwnerWorkspace() {
       {/* Current Step Content */}
       {renderStepContent()}
     </div>
+  );
+}
+
+export default function LoadOwnerWorkspace() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoadOwnerWorkspaceContent />
+    </Suspense>
   );
 }
 
