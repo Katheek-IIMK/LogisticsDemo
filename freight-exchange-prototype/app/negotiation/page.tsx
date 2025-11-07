@@ -117,6 +117,12 @@ function NegotiationContent() {
         status: 'negotiating',
       });
 
+      useAppStore.setState((state) => ({
+        negotiations: state.negotiations.some((n) => n.id === recreated.id)
+          ? state.negotiations.map((n) => (n.id === recreated.id ? recreated : n))
+          : [...state.negotiations, recreated],
+      }));
+
       router.replace(`/negotiation?id=${recreated.id}`, { scroll: false });
 
       const normalized = {
@@ -180,7 +186,11 @@ function NegotiationContent() {
             if (response.ok) {
               found = await response.json();
               if (found) {
-                await addNegotiation(found);
+                useAppStore.setState((state) => ({
+                  negotiations: state.negotiations.some((n) => n.id === found!.id)
+                    ? state.negotiations.map((n) => (n.id === found!.id ? found! : n))
+                    : [...state.negotiations, found!],
+                }));
                 const updatedNegotiations = useAppStore.getState().negotiations;
                 found = updatedNegotiations.find((n) => n.id === negotiationId);
               }
