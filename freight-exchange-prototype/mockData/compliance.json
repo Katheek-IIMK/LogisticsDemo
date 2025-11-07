@@ -1,0 +1,23 @@
+{
+  "rules": [
+    {
+      "state": "MH",
+      "maxAxleWeight": 12000,
+      "restrictedHours": ["00:00", "06:00"],
+      "permitRequired": ["oversized"]
+    },
+    {
+      "state": "KA",
+      "maxAxleWeight": 11000,
+      "restrictedHours": [],
+      "permitRequired": ["hazardous"]
+    },
+    {
+      "state": "TN",
+      "maxAxleWeight": 12000,
+      "restrictedHours": ["22:00", "05:00"],
+      "permitRequired": []
+    }
+  ]
+}
+

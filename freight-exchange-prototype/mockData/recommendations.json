@@ -1,0 +1,33 @@
+{
+  "recommendations": [
+    {
+      "id": "rec_001",
+      "origin": "Pune",
+      "destination": "Bangalore",
+      "loadType": "20T Reefer",
+      "distanceKm": 840,
+      "detourKm": 120,
+      "feasibility": 0.91,
+      "priceSuggested": 45000,
+      "complianceFlags": [],
+      "etaHours": 14,
+      "routeSummary": "Suggested milk-run: Pune→Satara→Bangalore — combines 20T reefer + 5T dry; est. revenue ₹62,000",
+      "truckId": "truck_001"
+    },
+    {
+      "id": "rec_002",
+      "origin": "Mumbai",
+      "destination": "Delhi",
+      "loadType": "15T Dry",
+      "distanceKm": 1400,
+      "detourKm": 200,
+      "feasibility": 0.78,
+      "priceSuggested": 75000,
+      "complianceFlags": ["permitRequired"],
+      "etaHours": 20,
+      "routeSummary": "Direct route Mumbai→Delhi with permit required for hazardous materials",
+      "truckId": "truck_002"
+    }
+  ]
+}
+

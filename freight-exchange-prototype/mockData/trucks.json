@@ -1,0 +1,29 @@
+{
+  "trucks": [
+    {
+      "id": "truck_001",
+      "capacity": 20000,
+      "currentLocation": "Pune",
+      "idleHours": 4,
+      "equipment": "Reefer",
+      "driverId": "driver_001"
+    },
+    {
+      "id": "truck_002",
+      "capacity": 15000,
+      "currentLocation": "Mumbai",
+      "idleHours": 12,
+      "equipment": "Dry Van",
+      "driverId": "driver_002"
+    },
+    {
+      "id": "truck_003",
+      "capacity": 25000,
+      "currentLocation": "Satara",
+      "idleHours": 2,
+      "equipment": "Dry Van",
+      "driverId": "driver_003"
+    }
+  ]
+}
+
