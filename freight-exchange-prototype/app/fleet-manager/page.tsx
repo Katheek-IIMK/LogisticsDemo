@@ -320,6 +320,8 @@ function FleetManagerWorkspaceContent() {
                             offers: [],
                             status: 'active',
                             currentRound: 0,
+                            recommendationSnapshot: recommendation,
+                            loadSnapshot: selectedLoad,
                           });
                           await updateLoad(selectedLoad.id, {
                             status: 'matched',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,120 @@ function NegotiationContent() {
   const [finalizedPrice, setFinalizedPrice] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   
+  const rehydrateAttemptedRef = useRef(false);
+  const startRetryRef = useRef(false);
+
+  const attemptNegotiationRehydrate = useCallback(async () => {
+    if (rehydrateAttemptedRef.current) {
+      return null;
+    }
+    rehydrateAttemptedRef.current = true;
+
+    try {
+      if (!negotiationId) {
+        return null;
+      }
+
+      const baseNegotiation = negotiation || null;
+      const baseLoad =
+        loads.find((l) => l.negotiationId === negotiationId) ||
+        (baseNegotiation?.recommendationId
+          ? loads.find((l) => l.recommendationId === baseNegotiation.recommendationId)
+          : null);
+
+      const baseRecommendation =
+        baseNegotiation?.recommendationId
+          ? recommendations.find((r) => r.id === baseNegotiation.recommendationId)
+          : baseLoad?.recommendationId
+          ? recommendations.find((r) => r.id === baseLoad.recommendationId)
+          : null;
+
+      if (!baseRecommendation || !baseLoad) {
+        return null;
+      }
+
+      const priceBasis =
+        baseRecommendation.priceSuggested ||
+        baseLoad.pricePredicted ||
+        baseLoad.finalizedPrice ||
+        45000;
+
+      const buyerAgent =
+        baseNegotiation?.buyerAgent || {
+          id: 'buyer_001',
+          name: 'Load Owner Agent',
+          minPrice: Math.round(priceBasis * 0.8),
+          maxPrice: Math.round(priceBasis * 1.1),
+          concessionRate: 2,
+        };
+
+      const sellerAgent =
+        baseNegotiation?.sellerAgent || {
+          id: 'seller_001',
+          name: 'Fleet Manager Agent',
+          minPrice: Math.round(priceBasis * 0.9),
+          maxPrice: Math.round(priceBasis * 1.2),
+          concessionRate: 2,
+        };
+
+      const snapshot =
+        baseNegotiation && baseNegotiation.id === negotiationId
+          ? { ...baseNegotiation }
+          : baseNegotiation
+          ? { ...baseNegotiation, id: negotiationId }
+          : undefined;
+
+      const recreated = await addNegotiation({
+        recommendationId: baseRecommendation.id,
+        buyerAgent,
+        sellerAgent,
+        offers: snapshot?.offers ?? [],
+        status: snapshot?.status ?? 'active',
+        currentRound: snapshot?.currentRound ?? 0,
+        recommendationSnapshot: baseRecommendation,
+        loadSnapshot: baseLoad,
+        negotiationSnapshot: snapshot
+          ? {
+              ...snapshot,
+              recommendationId: baseRecommendation.id,
+            }
+          : undefined,
+      });
+
+      await updateLoad(baseLoad.id, {
+        negotiationId: recreated.id,
+        status: 'negotiating',
+      });
+
+      router.replace(`/negotiation?id=${recreated.id}`, { scroll: false });
+
+      const normalized = {
+        ...recreated,
+        offers: recreated.offers ?? [],
+      };
+
+      setNegotiation(normalized);
+      if (normalized.finalizedPrice) {
+        setFinalizedPrice(normalized.finalizedPrice);
+      }
+
+      return normalized;
+    } catch (rehydrateError) {
+      console.error('Failed to rehydrate negotiation:', rehydrateError);
+      return null;
+    } finally {
+      rehydrateAttemptedRef.current = false;
+    }
+  }, [
+    negotiationId,
+    negotiation,
+    loads,
+    recommendations,
+    addNegotiation,
+    updateLoad,
+    router,
+  ]);
+
   // Get the selected recommendation (only one matchmaking)
   const selectedRecommendation = negotiation 
     ? recommendations.find(r => r.id === negotiation.recommendationId)
@@ -67,7 +181,6 @@ function NegotiationContent() {
               found = await response.json();
               if (found) {
                 await addNegotiation(found);
-                // Get updated negotiations
                 const updatedNegotiations = useAppStore.getState().negotiations;
                 found = updatedNegotiations.find((n) => n.id === negotiationId);
               }
@@ -91,7 +204,10 @@ function NegotiationContent() {
             setFinalizedPrice(normalizedFound.finalizedPrice);
           }
         } else {
-          setError(`Negotiation with ID "${negotiationId}" not found. Please check the ID and try again.`);
+          const recreated = await attemptNegotiationRehydrate();
+          if (!recreated) {
+            setError(`Negotiation with ID "${negotiationId}" not found. Please check the ID and try again.`);
+          }
         }
       } catch (err: any) {
         setError(err.message || 'Failed to load negotiation');
@@ -101,7 +217,7 @@ function NegotiationContent() {
       }
     };
     loadNegotiation();
-  }, [negotiationId, addNegotiation, syncNegotiations]);
+  }, [negotiationId, addNegotiation, syncNegotiations, attemptNegotiationRehydrate]);
   
   // Update local state when negotiations change
   useEffect(() => {
@@ -120,23 +236,34 @@ function NegotiationContent() {
     }
   }, [negotiations, negotiationId]);
 
-  const handleStartNegotiation = async () => {
-    if (!negotiation) return;
+  const handleStartNegotiation = async (target?: Negotiation) => {
+    const negotiationToStart = target ?? negotiation;
+    if (!negotiationToStart) return;
     setIsNegotiating(true);
     setError(null);
     
     try {
-      // Call backend API to start negotiation
-      const response = await fetch(`/api/negotiations/${negotiation.id}/start`, {
+      const response = await fetch(`/api/negotiations/${negotiationToStart.id}/start`, {
         method: 'POST',
       });
+      const payload = await response.json().catch(() => ({}));
       
       if (!response.ok) {
-        throw new Error('Failed to start negotiation');
+        const message = payload?.error || 'Failed to start negotiation';
+        if (!startRetryRef.current && message.toLowerCase().includes('not found')) {
+          startRetryRef.current = true;
+          const recreated = await attemptNegotiationRehydrate();
+          startRetryRef.current = false;
+          if (recreated) {
+            await handleStartNegotiation(recreated);
+            return;
+          }
+        }
+        throw new Error(message);
       }
       
-      const updatedNegotiation = (await response.json()) as Negotiation;
-      await updateNegotiation(negotiation.id, updatedNegotiation);
+      const updatedNegotiation = payload as Negotiation;
+      await updateNegotiation(negotiationToStart.id, updatedNegotiation);
       setNegotiation({
         ...updatedNegotiation,
         offers: updatedNegotiation.offers ?? [],
@@ -478,7 +605,7 @@ function NegotiationContent() {
               <div className="flex gap-2 mt-6">
                 {negotiation.offers.length === 0 && (
                   <Button
-                    onClick={handleStartNegotiation}
+                    onClick={() => handleStartNegotiation()}
                     disabled={isNegotiating}
                     className="w-full"
                   >

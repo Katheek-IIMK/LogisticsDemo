@@ -26,11 +26,21 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { recommendationId, buyerAgent, sellerAgent } = body;
+    const {
+      recommendationId,
+      buyerAgent,
+      sellerAgent,
+      recommendationSnapshot,
+      loadSnapshot,
+      negotiationSnapshot,
+    } = body;
     const negotiation = await negotiationService.createNegotiation(
       recommendationId,
       buyerAgent,
-      sellerAgent
+      sellerAgent,
+      recommendationSnapshot,
+      loadSnapshot,
+      negotiationSnapshot
     );
     return NextResponse.json(negotiation, { status: 201 });
   } catch (error: any) {

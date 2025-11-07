@@ -44,6 +44,13 @@ export default function MatchmakingPage() {
     setLoading(true);
     setError(null);
     try {
+      const associatedLoad =
+        'loadId' in rec && rec.loadId
+          ? loads.find((load) => load.id === rec.loadId) || null
+          : loads.find((load) =>
+              load.origin === rec.origin && load.destination === rec.destination
+            ) || null;
+
       const negotiation = await addNegotiation({
         recommendationId: rec.id,
         buyerAgent: {
@@ -63,6 +70,8 @@ export default function MatchmakingPage() {
         offers: [],
         status: 'active',
         currentRound: 0,
+        recommendationSnapshot: rec as Recommendation,
+        loadSnapshot: associatedLoad || undefined,
       });
       
       // Update load status if it has a loadId

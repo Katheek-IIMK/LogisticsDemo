@@ -26,11 +26,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { loadId, loadSnapshot, ...recommendationData } = body;
+    const { loadId, loadSnapshot, recommendationSnapshot, ...recommendationData } = body;
     const recommendation = await recommendationService.createRecommendation(
       loadId,
       recommendationData,
-      loadSnapshot
+      loadSnapshot,
+      recommendationSnapshot
     );
     return NextResponse.json(recommendation, { status: 201 });
   } catch (error: any) {

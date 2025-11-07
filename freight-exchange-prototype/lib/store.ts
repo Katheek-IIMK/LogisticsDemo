@@ -16,7 +16,13 @@ interface AppState {
   updateLoad: (id: string, updates: Partial<Load>) => Promise<Load>;
   addRecommendation: (rec: Omit<Recommendation, 'id'> & { loadSnapshot?: Load }) => Promise<Recommendation>;
   updateRecommendation: (id: string, updates: Partial<Recommendation>) => Promise<Recommendation>;
-  addNegotiation: (neg: Omit<Negotiation, 'id'>) => Promise<Negotiation>;
+  addNegotiation: (
+    neg: Omit<Negotiation, 'id'> & {
+      recommendationSnapshot?: Recommendation;
+      loadSnapshot?: Load;
+      negotiationSnapshot?: Negotiation;
+    }
+  ) => Promise<Negotiation>;
   updateNegotiation: (id: string, updates: Partial<Negotiation>) => Promise<Negotiation>;
   addTrip: (trip: Omit<Trip, 'id'>) => Promise<Trip>;
   updateTrip: (id: string, updates: Partial<Trip>) => Promise<Trip>;

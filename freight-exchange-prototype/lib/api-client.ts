@@ -76,10 +76,16 @@ class ApiClient {
   }
 
   // Negotiations API
-  async createNegotiation(negotiation: Omit<Negotiation, 'id'>): Promise<Negotiation> {
+  async createNegotiation(
+    neg: Omit<Negotiation, 'id'> & {
+      recommendationSnapshot?: Recommendation;
+      loadSnapshot?: Load;
+      negotiationSnapshot?: Negotiation;
+    }
+  ): Promise<Negotiation> {
     return this.request<Negotiation>('/negotiations', {
       method: 'POST',
-      body: JSON.stringify(negotiation),
+      body: JSON.stringify(neg),
     });
   }
 

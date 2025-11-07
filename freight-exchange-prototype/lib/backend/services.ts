@@ -30,7 +30,8 @@ export class RecommendationService {
   async createRecommendation(
     loadId: string,
     recommendationData: Omit<Recommendation, 'id' | 'loadId' | 'status'>,
-    loadSnapshot?: Load
+    loadSnapshot?: Load,
+    recommendationSnapshot?: Recommendation
   ): Promise<Recommendation> {
     let load = await dataStore.getLoad(loadId);
     if (!load && loadSnapshot) {
@@ -41,13 +42,52 @@ export class RecommendationService {
       throw new Error('Load not found');
     }
 
+    if (recommendationSnapshot) {
+      const existing = await dataStore.getRecommendation(recommendationSnapshot.id);
+      const recommendationToReturn = existing
+        ? existing
+        : await dataStore.createRecommendation({
+            ...recommendationSnapshot,
+            loadId,
+          } as Recommendation);
+
+      await dataStore.updateLoad(loadId, {
+        status: 'matched',
+        recommendationId: recommendationToReturn.id,
+      });
+
+      return recommendationToReturn;
+    }
+
+    const distance =
+      recommendationData.distanceKm ?? Math.round(Math.random() * 500 + 200);
+
     const recommendation: Recommendation = {
-      ...recommendationData,
       id: `rec_${Date.now()}`,
-      loadId,
+      loadId: load.id,
+      origin: recommendationData.origin ?? load.origin,
+      destination: recommendationData.destination ?? load.destination,
+      loadType: recommendationData.loadType ?? load.loadType,
+      distanceKm: recommendationData.distanceKm ?? distance,
+      detourKm: recommendationData.detourKm ?? Math.round(distance * 0.1),
+      feasibility: recommendationData.feasibility ?? 0.91,
+      priceSuggested:
+        recommendationData.priceSuggested ??
+        (load.priceRange ? (load.priceRange.min + load.priceRange.max) / 2 : 45000),
+      complianceFlags: recommendationData.complianceFlags ?? [],
+      etaHours: recommendationData.etaHours ?? Math.round(distance / 60),
+      routeSummary: recommendationData.routeSummary,
+      truckId: recommendationData.truckId,
       status: 'pending',
     };
-    return dataStore.createRecommendation(recommendation);
+
+    await dataStore.createRecommendation(recommendation);
+    await dataStore.updateLoad(loadId, {
+      status: 'matched',
+      recommendationId: recommendation.id,
+    });
+
+    return recommendation;
   }
 
   async matchLoadToFleet(loadId: string): Promise<Recommendation> {
@@ -87,33 +127,71 @@ export class NegotiationService {
   async createNegotiation(
     recommendationId: string,
     buyerAgent: Negotiation['buyerAgent'],
-    sellerAgent: Negotiation['sellerAgent']
+    sellerAgent: Negotiation['sellerAgent'],
+    recommendationSnapshot?: Recommendation,
+    loadSnapshot?: Load,
+    negotiationSnapshot?: Negotiation
   ): Promise<Negotiation> {
-    const recommendation = await dataStore.getRecommendation(recommendationId);
+    if (negotiationSnapshot?.id) {
+      const existingNegotiation = await dataStore.getNegotiation(negotiationSnapshot.id);
+      if (existingNegotiation) {
+        return existingNegotiation;
+      }
+    }
+
+    let recommendation = await dataStore.getRecommendation(recommendationId);
+    if (!recommendation && recommendationSnapshot) {
+      const targetLoadId = recommendationSnapshot.loadId;
+      let targetLoad = await dataStore.getLoad(targetLoadId);
+      if (!targetLoad && loadSnapshot) {
+        await dataStore.createLoad(loadSnapshot);
+        targetLoad = await dataStore.getLoad(targetLoadId);
+      }
+      if (!targetLoad) {
+        throw new Error('Load not found');
+      }
+      await dataStore.createRecommendation({
+        ...recommendationSnapshot,
+        loadId: targetLoadId,
+      } as Recommendation);
+      recommendation = await dataStore.getRecommendation(recommendationId);
+    }
+
     if (!recommendation) {
       throw new Error('Recommendation not found');
     }
 
-    const negotiation: Negotiation = {
-      id: `neg_${Date.now()}`,
-      recommendationId,
-      buyerAgent,
-      sellerAgent,
-      offers: [],
-      status: 'active',
-      currentRound: 0,
-    };
+    let load = await dataStore.getLoad(recommendation.loadId);
+    if (!load && loadSnapshot && loadSnapshot.id === recommendation.loadId) {
+      await dataStore.createLoad(loadSnapshot);
+      load = await dataStore.getLoad(recommendation.loadId);
+    }
+
+    if (!load) {
+      throw new Error('Load not found');
+    }
+
+    const negotiation: Negotiation = negotiationSnapshot
+      ? {
+          ...negotiationSnapshot,
+          recommendationId,
+        }
+      : {
+          id: `neg_${Date.now()}`,
+          recommendationId,
+          buyerAgent,
+          sellerAgent,
+          offers: [],
+          status: 'active',
+          currentRound: 0,
+        };
 
     await dataStore.createNegotiation(negotiation);
-    
-    // Update load status
-    const load = await dataStore.getLoad(recommendation.loadId);
-    if (load) {
-      await dataStore.updateLoad(load.id, {
-        status: 'negotiating',
-        negotiationId: negotiation.id,
-      });
-    }
+
+    await dataStore.updateLoad(load.id, {
+      status: 'negotiating',
+      negotiationId: negotiation.id,
+    });
 
     return negotiation;
   }

@@ -562,6 +562,8 @@ function LoadOwnerWorkspaceContent() {
                           offers: [],
                           status: 'active',
                           currentRound: 0,
+                          recommendationSnapshot: currentRec,
+                          loadSnapshot: currentLoad,
                         });
                         await updateLoad(currentLoad.id, {
                           negotiationId: negotiation.id,
