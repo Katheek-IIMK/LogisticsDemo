@@ -147,13 +147,13 @@ function FleetManagerWorkspaceContent() {
   }, [searchParams, currentStep]);
 
   useEffect(() => {
-    if (currentStep === 'driver' && !selectedLoadId && activeLoad) {
+    if ((currentStep === 'driver' || currentStep === 'dispatch') && !selectedLoadId && activeLoad) {
       setSelectedLoadId(activeLoad.id);
     }
   }, [currentStep, selectedLoadId, activeLoad]);
 
   useEffect(() => {
-    if (currentStep === 'driver' && !selectedDriverId && driverOptions.length > 0) {
+    if ((currentStep === 'driver' || currentStep === 'dispatch') && !selectedDriverId && driverOptions.length > 0) {
       setSelectedDriverId(driverOptions[0].id);
     }
   }, [currentStep, selectedDriverId, driverOptions]);
@@ -278,55 +278,73 @@ function FleetManagerWorkspaceContent() {
                         setLoading(true);
                         setError(null);
                         try {
-                          const selectedLoad = loads.find(l => l.id === selectedLoadId);
-                          if (selectedLoad) {
-                            // Create a recommendation via API
-                            const distance = Math.round(Math.random() * 500 + 200);
-                            const recommendation = await addRecommendation({
-                              loadId: selectedLoad.id,
-                              origin: selectedLoad.origin,
-                              destination: selectedLoad.destination,
-                              loadType: selectedLoad.loadType,
-                              distanceKm: distance,
-                              detourKm: Math.round(distance * 0.1),
-                              feasibility: 0.91,
-                              priceSuggested: selectedLoad.priceRange ? (selectedLoad.priceRange.min + selectedLoad.priceRange.max) / 2 : 45000,
-                              complianceFlags: [],
-                              etaHours: Math.round(distance / 60),
-                              status: 'pending',
-                            });
-                            
-                            // Create negotiation when recommendation is created
-                            await syncNegotiations();
-                            const negotiation = await addNegotiation({
-                              recommendationId: recommendation.id,
-                              buyerAgent: {
-                                id: 'buyer_001',
-                                name: 'Load Owner Agent',
-                                minPrice: Math.round(recommendation.priceSuggested * 0.8),
-                                maxPrice: Math.round(recommendation.priceSuggested * 1.1),
-                                concessionRate: 2,
-                              },
-                              sellerAgent: {
-                                id: 'seller_001',
-                                name: 'Fleet Manager Agent',
-                                minPrice: Math.round(recommendation.priceSuggested * 0.9),
-                                maxPrice: Math.round(recommendation.priceSuggested * 1.2),
-                                concessionRate: 2,
-                              },
-                              offers: [],
-                              status: 'active',
-                              currentRound: 0,
-                            });
-                            
-                            await updateLoad(selectedLoadId, {
+                          await syncLoads();
+                          const latestLoads = useAppStore.getState().loads;
+                          const selectedLoad = latestLoads.find(l => l.id === selectedLoadId);
+                          if (!selectedLoad) {
+                            setError('Selected load is no longer available. Refresh the list and try again.');
+                            return;
+                          }
+                          const distance = Math.round(Math.random() * 500 + 200);
+                          const recommendation = await addRecommendation({
+                            loadId: selectedLoad.id,
+                            origin: selectedLoad.origin,
+                            destination: selectedLoad.destination,
+                            loadType: selectedLoad.loadType,
+                            distanceKm: distance,
+                            detourKm: Math.round(distance * 0.1),
+                            feasibility: 0.91,
+                            priceSuggested: selectedLoad.priceRange ? (selectedLoad.priceRange.min + selectedLoad.priceRange.max) / 2 : 45000,
+                            complianceFlags: [],
+                            etaHours: Math.round(distance / 60),
+                            status: 'pending',
+                          });
+                          await syncNegotiations();
+                          const negotiation = await addNegotiation({
+                            recommendationId: recommendation.id,
+                            buyerAgent: {
+                              id: 'buyer_001',
+                              name: 'Load Owner Agent',
+                              minPrice: Math.round(recommendation.priceSuggested * 0.8),
+                              maxPrice: Math.round(recommendation.priceSuggested * 1.1),
+                              concessionRate: 2,
+                            },
+                            sellerAgent: {
+                              id: 'seller_001',
+                              name: 'Fleet Manager Agent',
+                              minPrice: Math.round(recommendation.priceSuggested * 0.9),
+                              maxPrice: Math.round(recommendation.priceSuggested * 1.2),
+                              concessionRate: 2,
+                            },
+                            offers: [],
+                            status: 'active',
+                            currentRound: 0,
+                          });
+                          try {
+                            await updateLoad(selectedLoad.id, {
                               status: 'matched',
                               recommendationId: recommendation.id,
                               negotiationId: negotiation.id,
                             });
-                            setSelectedRecommendationId(recommendation.id);
-                            handleNextStep();
+                          } catch (updateErr: any) {
+                            if (updateErr?.message?.includes('Load not found')) {
+                              await syncLoads();
+                              const refreshedLoad = useAppStore.getState().loads.find(l => l.id === selectedLoad.id);
+                              if (refreshedLoad) {
+                                await updateLoad(refreshedLoad.id, {
+                                  status: 'matched',
+                                  recommendationId: recommendation.id,
+                                  negotiationId: negotiation.id,
+                                });
+                              } else {
+                                throw new Error('Selected load could not be updated. Please refresh and choose a load again.');
+                              }
+                            } else {
+                              throw updateErr;
+                            }
                           }
+                          setSelectedRecommendationId(recommendation.id);
+                          handleNextStep();
                         } catch (err: any) {
                           setError(err.message || 'Failed to create recommendation');
                           console.error(err);
