@@ -29,8 +29,18 @@ export class LoadService {
 export class RecommendationService {
   async createRecommendation(
     loadId: string,
-    recommendationData: Omit<Recommendation, 'id' | 'loadId' | 'status'>
+    recommendationData: Omit<Recommendation, 'id' | 'loadId' | 'status'>,
+    loadSnapshot?: Load
   ): Promise<Recommendation> {
+    let load = await dataStore.getLoad(loadId);
+    if (!load && loadSnapshot) {
+      await dataStore.createLoad(loadSnapshot);
+      load = await dataStore.getLoad(loadId);
+    }
+    if (!load) {
+      throw new Error('Load not found');
+    }
+
     const recommendation: Recommendation = {
       ...recommendationData,
       id: `rec_${Date.now()}`,

@@ -298,6 +298,7 @@ function FleetManagerWorkspaceContent() {
                             complianceFlags: [],
                             etaHours: Math.round(distance / 60),
                             status: 'pending',
+                            loadSnapshot: selectedLoad,
                           });
                           await syncNegotiations();
                           const negotiation = await addNegotiation({

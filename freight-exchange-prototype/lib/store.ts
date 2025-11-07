@@ -14,7 +14,7 @@ interface AppState {
   updateKPIs: (kpis: Partial<KPI>) => Promise<void>;
   addLoad: (load: Omit<Load, 'id' | 'createdAt' | 'status'>) => Promise<Load>;
   updateLoad: (id: string, updates: Partial<Load>) => Promise<Load>;
-  addRecommendation: (rec: Omit<Recommendation, 'id'>) => Promise<Recommendation>;
+  addRecommendation: (rec: Omit<Recommendation, 'id'> & { loadSnapshot?: Load }) => Promise<Recommendation>;
   updateRecommendation: (id: string, updates: Partial<Recommendation>) => Promise<Recommendation>;
   addNegotiation: (neg: Omit<Negotiation, 'id'>) => Promise<Negotiation>;
   updateNegotiation: (id: string, updates: Partial<Negotiation>) => Promise<Negotiation>;

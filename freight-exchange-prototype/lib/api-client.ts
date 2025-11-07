@@ -53,10 +53,10 @@ class ApiClient {
   }
 
   // Recommendations API
-  async createRecommendation(recommendation: Omit<Recommendation, 'id'>): Promise<Recommendation> {
+  async createRecommendation(rec: Omit<Recommendation, 'id'> & { loadSnapshot?: Load }): Promise<Recommendation> {
     return this.request<Recommendation>('/recommendations', {
       method: 'POST',
-      body: JSON.stringify(recommendation),
+      body: JSON.stringify(rec),
     });
   }
 
