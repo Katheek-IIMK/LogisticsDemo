@@ -8,6 +8,13 @@ import { Load, Recommendation, Negotiation, Trip, KPI } from '@/types';
 import { promises as fs } from 'fs';
 import path from 'path';
 
+const isReadOnlyEnvironment =
+  process.env.NETLIFY === 'true' ||
+  process.env.VERCEL === '1' ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined;
+
+const READ_ONLY_ERROR_CODES = new Set(['EROFS', 'EACCES', 'EPERM']);
+
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'store.json');
 
@@ -33,10 +40,13 @@ const defaultStore: DataStore = {
 };
 
 async function ensureDataDir(): Promise<void> {
+  if (isReadOnlyEnvironment) {
+    return;
+  }
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
   } catch (error) {
-    // Directory might already exist
+    // Directory might already exist or be read-only
   }
 }
 
@@ -52,10 +62,18 @@ async function loadStore(): Promise<DataStore> {
 }
 
 async function saveStore(store: DataStore): Promise<void> {
+  if (isReadOnlyEnvironment) {
+    // Skip persistence; lambda environments are often read-only
+    return;
+  }
   try {
     await ensureDataDir();
     await fs.writeFile(DATA_FILE, JSON.stringify(store, null, 2), 'utf-8');
-  } catch (error) {
+  } catch (error: any) {
+    if (READ_ONLY_ERROR_CODES.has(error?.code)) {
+      console.warn('Filesystem is read-only. Disabling persistence for this session.');
+      return;
+    }
     console.error('Error saving store:', error);
     throw error;
   }
@@ -65,6 +83,7 @@ export class BackendDataStore {
   private static instance: BackendDataStore;
   private store: DataStore = defaultStore;
   private initialized = false;
+  private persistenceDisabled = isReadOnlyEnvironment;
 
   private constructor() {}
 
@@ -82,7 +101,19 @@ export class BackendDataStore {
   }
 
   private async persist(): Promise<void> {
-    await saveStore(this.store);
+    if (this.persistenceDisabled) {
+      return;
+    }
+    try {
+      await saveStore(this.store);
+    } catch (error: any) {
+      if (READ_ONLY_ERROR_CODES.has(error?.code) || isReadOnlyEnvironment) {
+        console.warn('Disabling persistence due to read-only filesystem. Data will be stored in-memory only for this session.');
+        this.persistenceDisabled = true;
+        return;
+      }
+      throw error;
+    }
   }
 
   // Loads
