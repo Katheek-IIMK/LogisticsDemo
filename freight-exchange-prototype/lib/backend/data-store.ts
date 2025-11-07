@@ -7,13 +7,19 @@
 import { Load, Recommendation, Negotiation, Trip, KPI } from '@/types';
 import { promises as fs } from 'fs';
 import path from 'path';
+import { getStore } from '@netlify/blobs';
 
+type NetlifyBlobStore = ReturnType<typeof getStore>;
+
+const isNetlify = process.env.NETLIFY === 'true';
 const isReadOnlyEnvironment =
-  process.env.NETLIFY === 'true' ||
+  isNetlify ||
   process.env.VERCEL === '1' ||
   process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined;
 
 const READ_ONLY_ERROR_CODES = new Set(['EROFS', 'EACCES', 'EPERM']);
+const NETLIFY_STORE_KEY = 'store.json';
+let netlifyStore: NetlifyBlobStore | null = null;
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'store.json');
@@ -52,16 +58,32 @@ async function ensureDataDir(): Promise<void> {
 
 async function loadStore(): Promise<DataStore> {
   try {
+    if (isNetlify) {
+      const store = ensureNetlifyStore();
+      const blob = (await store.get(NETLIFY_STORE_KEY, { type: 'json' })) as DataStore | null;
+      return blob ?? defaultStore;
+    }
     await ensureDataDir();
     const data = await fs.readFile(DATA_FILE, 'utf-8');
     return JSON.parse(data);
   } catch (error) {
-    // File doesn't exist, return default
+    // File or blob doesn't exist, return default
     return defaultStore;
   }
 }
 
 async function saveStore(store: DataStore): Promise<void> {
+  if (isNetlify) {
+    const blobStore = ensureNetlifyStore();
+    await blobStore.set(
+      NETLIFY_STORE_KEY,
+      JSON.stringify(store, null, 2),
+      {
+        metadata: { contentType: 'application/json' },
+      }
+    );
+    return;
+  }
   if (isReadOnlyEnvironment) {
     // Skip persistence; lambda environments are often read-only
     return;
@@ -79,11 +101,18 @@ async function saveStore(store: DataStore): Promise<void> {
   }
 }
 
+function ensureNetlifyStore(): NetlifyBlobStore {
+  if (!netlifyStore) {
+    netlifyStore = getStore({ name: 'freight-exchange-store' });
+  }
+  return netlifyStore;
+}
+
 export class BackendDataStore {
   private static instance: BackendDataStore;
   private store: DataStore = defaultStore;
   private initialized = false;
-  private persistenceDisabled = isReadOnlyEnvironment;
+  private persistenceDisabled = isReadOnlyEnvironment && !isNetlify;
 
   private constructor() {}
 
