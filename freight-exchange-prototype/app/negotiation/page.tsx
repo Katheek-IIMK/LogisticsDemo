@@ -61,6 +61,7 @@ function NegotiationContent() {
           : null;
 
       if (!baseRecommendation || !baseLoad) {
+        rehydrateAttemptedRef.current = false;
         return null;
       }
 
@@ -123,7 +124,9 @@ function NegotiationContent() {
           : [...state.negotiations, recreated],
       }));
 
-      router.replace(`/negotiation?id=${recreated.id}`, { scroll: false });
+      if (recreated.id !== negotiationId) {
+        router.replace(`/negotiation?id=${recreated.id}`, { scroll: false });
+      }
 
       const normalized = {
         ...recreated,
@@ -138,9 +141,8 @@ function NegotiationContent() {
       return normalized;
     } catch (rehydrateError) {
       console.error('Failed to rehydrate negotiation:', rehydrateError);
-      return null;
-    } finally {
       rehydrateAttemptedRef.current = false;
+      return null;
     }
   }, [
     negotiationId,
@@ -151,6 +153,10 @@ function NegotiationContent() {
     updateLoad,
     router,
   ]);
+
+  useEffect(() => {
+    rehydrateAttemptedRef.current = false;
+  }, [negotiationId]);
 
   // Get the selected recommendation (only one matchmaking)
   const selectedRecommendation = negotiation 
